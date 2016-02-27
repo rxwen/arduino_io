@@ -1,5 +1,7 @@
-all: StateChangeDetection.ino
-	/opt/homebrew-cask/Caskroom/arduino/1.6.7/Arduino.app/Contents//MacOS/Arduino \
-		--upload --verbose --board "arduino:avr:uno" \
-		--port /dev/cu.usbmodem14111 \
-		$<
+all:
+	platformio run
+	platformio run --target upload
+
+# run platformio boards to find out your board id
+init:
+	platformio init --board uno
