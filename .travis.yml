@@ -35,6 +35,7 @@ cache:
 
 install:
     - pip install -U platformio
+    - platformio lib install 64 #install ArduinoJson
 
 script:
     - cd relayer/
