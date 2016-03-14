@@ -10,7 +10,7 @@ const char KEY_PIN[] = "pin";
 const char KEY_MODE[] = "mode";
 const char KEY_VALUE[] = "value";
 const int CMD_INIT = 0x0001;
-const int CMD_HEART = 0x0001;
+const int CMD_HEART = 0x0002;
 const int CMD_SET_MODE = 0x0101;
 const int CMD_SET_VALUE = 0x0102;
 const int CMD_QUERY_VALUE = 0x0202;
@@ -28,10 +28,11 @@ static float time_sent;
 
 static int sequence_mine, sequence_ack;
 
+const int LEN_BUFFER_SEND = 200;
 const int LEN_BUFFER_RCV = 200;
 static char buffer_rcv[LEN_BUFFER_RCV];
 int pos_buffer_rcv;
-static StaticJsonBuffer<200> jsonBuffer;
+static StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
 static QueueList<String> queue_send;
 int pin_led = 13;
 static boolean twinkling = true;
@@ -94,7 +95,7 @@ static JsonObject& ReadSPDU()
   //read Serial into buffer_rcv
   while(pos_buffer_rcv< LEN_BUFFER_RCV){
     if (Serial.available()>0){
-      buffer_rcv[pos_buffer_rcv] = Serial.read();
+      buffer_rcv[pos_buffer_rcv++] = Serial.read();
     }
     else{
       break;
@@ -202,8 +203,8 @@ static void ProcessSPDU(JsonObject& pdu)
 //write the pdu and this checksum to the Serial.
 static void SendSPDU(JsonObject& pdu)
 {
-  static char buffer_send[200];
-  int temp = pdu.printTo(buffer_send, 199);
+  static char buffer_send[LEN_BUFFER_SEND];
+  int temp = pdu.printTo(buffer_send, LEN_BUFFER_SEND-1);
   if (temp>0)    {
     buffer_send[temp] = check_sum(buffer_send, temp);
   }
