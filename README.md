@@ -1,6 +1,7 @@
 # arduino_io 
 
 [![Build Status](https://travis-ci.org/rxwen/arduino_io.svg?branch=master)](https://travis-ci.org/rxwen/arduino_io)
+[travis-ci.org](https://travis-ci.org/)
 
 use arduino as io device
 
