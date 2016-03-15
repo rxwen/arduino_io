@@ -3,7 +3,8 @@
 #include <QueueList.h>
 #include "Timer.h"
 
-const int NUM_THREAD = 2;
+const int NUM_THREAD = 3;
+const int TIMEOUT_ACK = 100;
 const char KEY_COMMAND_ID[] ="command_id";
 const char KEY_SEQUENCE[] = "sequence";
 const char KEY_PIN[] = "pin";
@@ -110,6 +111,7 @@ static JsonObject& ReadSPDU()
   move_forward(temp);
 
   //find the end-tag of json
+
   int pos_end = 1;
   while (pos_end < pos_buffer_rcv && buffer_rcv[pos_end]!='}'){
     pos_end++;
@@ -216,11 +218,17 @@ static int thread2_WriteSPDU(struct pt *pt)
 {
   PT_BEGIN(pt);
   
-
   while(true) {
     need_init2 = false;
-    //PT_WAIT_UNTIL(pt, flag_thread == 2);
-    PT_WAIT_UNTIL(pt, flag_thread == 2 && (!waiting_ack || sequence_ack == sequence_mine || time_sent+100<millis() && 0xFFFFFFFF-time_sent+millis()>100 || need_init2));
+
+    //if waiting_ack, then loop until the ack arrived or timeout.
+    //The timeout value is assumed as 0.1 second.
+    while(waiting_ack && sequence_ack != sequence_mine ||
+	  waiting_ack && time_sent+TIMEOUT_ACK<millis() ||
+	  waiting_ack && millis()<time_sent && 0xFFFFFFFF-time_sent+millis()<TIMEOUT_ACK){
+      PT_WAIT_UNTIL(pt, flag_thread == 2);
+      if(need_init2) break;
+    }
 
 
     if (need_init2){
