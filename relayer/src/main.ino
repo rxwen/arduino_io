@@ -221,6 +221,8 @@ static int thread2_WriteSPDU(struct pt *pt)
   while(true) {
     need_init2 = false;
 
+    PT_WAIT_UNTIL(pt, flag_thread == 2);
+    
     //if waiting_ack, then loop until the ack arrived or timeout.
     //The timeout value is assumed as 0.1 second.
     while(waiting_ack && sequence_ack != sequence_mine ||
