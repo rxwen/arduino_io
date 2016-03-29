@@ -299,9 +299,6 @@ void Twinkle()
     digitalWrite(pin_led, digital_led);
 }
 
-
-
-
 void loop()
 {
     thread0_StandBySerial(&pt0);
