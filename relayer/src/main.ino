@@ -4,7 +4,7 @@
 #include "Timer.h"
 
 const int NUM_THREAD = 3;
-const int TIMEOUT_ACK = 100;
+const int TIMEOUT_ACK = 1000;
 const char KEY_COMMAND_ID[] ="command_id";
 const char KEY_SEQUENCE[] = "sequence";
 const char KEY_PIN[] = "pin";
@@ -19,26 +19,55 @@ const int CMD_QUERY_ADC = 0x0203;
 const int CMD_EVENT_VALUE = 0x0302;
 const int CMD_EVENT_ADC = 0x0303;
 
-static int flag_thread = 0;
+volatile static int flag_thread = 0;
 static struct pt pt0, pt1, pt2;
-static boolean need_init0, need_init1, need_init2;
+volatile static boolean need_init0, need_init1, need_init2;
 static Timer timer;
 
-static boolean waiting_ack= false;
-static float time_sent;
-static int sequence_mine, sequence_ack;
+volatile static boolean waiting_ack= false;
+volatile static float time_sent;
+volatile static int sequence_mine, sequence_ack;
 
-const int LEN_BUFFER_SEND = 100;
-const int LEN_BUFFER_RCV = 100;
+const int LEN_BUFFER_SEND = 200;
+const int LEN_BUFFER_RCV = 200;
 static char buffer_rcv[LEN_BUFFER_RCV];
-int pos_buffer_rcv;
+volatile static int pos_buffer_rcv;
 static QueueList<String> queue_send;
-int pin_led = 13;
-static boolean twinkling = true;
+const int pin_led = 13;
+volatile static boolean twinkling = true;
+volatile static int pin_query = 13, pin_query_adc = 1;
+
+const int NUMBER_NONE = -9999999;
+void WriteSerial1(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
+{
+  String stringOne = p;
+  stringOne += "( ";
+  if (num1 != NUMBER_NONE){
+    stringOne += num1;
+    stringOne += ", ";
+  }
+  if (num2 != NUMBER_NONE){
+    stringOne += num2;
+    stringOne += ", ";
+  }
+  if (num3 != NUMBER_NONE){
+    stringOne += num3;
+    stringOne += ", ";
+  }
+  if (num4 != NUMBER_NONE){
+    stringOne += num4;
+    stringOne += ", ";
+  }
+  stringOne += ")\r\n";
+  char charBuf[500];
+  stringOne.toCharArray(charBuf, 499);
+  Serial1.write(charBuf);
+}
 
 void setup()
 {
     Serial.begin(9600,SERIAL_8N1 );
+    Serial1.begin(9600);
     pinMode(pin_led, OUTPUT);
     timer.every(500, Twinkle);
     PT_INIT(&pt0);
@@ -46,6 +75,7 @@ void setup()
     PT_INIT(&pt2);
 
     initiate();
+    WriteSerial1("setup() is called .......");
 }
 
 
@@ -87,7 +117,9 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
     //read Serial into buffer_rcv
     while(pos_buffer_rcv< LEN_BUFFER_RCV){
         if (Serial.available()>0){
-            buffer_rcv[pos_buffer_rcv++] = Serial.read();
+            char b = Serial.read();
+            buffer_rcv[pos_buffer_rcv++] = b;
+            //Serial.write(b);
         }
         else{
             break;
@@ -116,18 +148,21 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
     //check check_sum
     if (check_sum(buffer_rcv, pos_end+1)!= buffer_rcv[pos_end+1]){
         move_forward(pos_end+2);
+        WriteSerial1("error check sum");
         return JsonObject::invalid();
     }
 
-
+    buffer_rcv[pos_end+1]='\0';
     JsonObject& pdu = _jsonBuffer.parseObject(buffer_rcv);
     move_forward(pos_end+2);
     //  return JsonObject::invalid();
-    if(pdu == JsonObject::invalid() ||
-            !pdu.containsKey(KEY_COMMAND_ID) ||
-            !pdu.containsKey(KEY_SEQUENCE)) {
+    if(pdu == JsonObject::invalid()
+      || !pdu.containsKey(KEY_COMMAND_ID)
+      ||!pdu.containsKey(KEY_SEQUENCE)) {
+        WriteSerial1("error message");
         return JsonObject::invalid();
     }
+//Serial1.write("Processing 888888888888888888888888");
 
     if (pdu[KEY_COMMAND_ID] < 0x8000)   {
         //Send the ACK for the valid PDU.
@@ -135,7 +170,10 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
         JsonObject& ack = jsonBuffer.createObject();
         ack[KEY_COMMAND_ID] = 0x8000 + (int)pdu[KEY_COMMAND_ID];
         ack[KEY_SEQUENCE] = pdu[KEY_SEQUENCE];
-        if(queue_send.count()< 10){
+        if (pdu[KEY_COMMAND_ID] == CMD_INIT){
+            SendSPDU(ack);
+        }
+        else if(queue_send.count()< 10){
             String str;
             ack.printTo(str);
             queue_send.push(str);
@@ -148,19 +186,19 @@ static void ProcessSPDU(JsonObject& pdu)
 {
     int command_id = pdu[KEY_COMMAND_ID];
     switch (command_id)    {
-CMD_INIT:
+      case CMD_INIT:
         initiate();
         break;
 
-CMD_SET_MODE:
-        pinMode(pdu[KEY_PIN],pdu[KEY_MODE]=="in"?INPUT:OUTPUT);
+      case CMD_SET_MODE:
+        pinMode(pdu[KEY_PIN],strcmp(pdu[KEY_MODE],"in")==0?INPUT_PULLUP:OUTPUT);
         break;
 
-CMD_SET_VALUE:
+      case CMD_SET_VALUE:
         digitalWrite(pdu[KEY_PIN], pdu[KEY_VALUE]);
         break;
 
-CMD_QUERY_VALUE:
+      case CMD_QUERY_VALUE:
         {
             StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
             JsonObject& event = jsonBuffer.createObject();
@@ -172,10 +210,11 @@ CMD_QUERY_VALUE:
                 event.printTo(str);
                 queue_send.push(str);
             }
+            pin_query = pdu[KEY_PIN];
         }
         break;
 
-CMD_QUERY_ADC:
+        case CMD_QUERY_ADC:
         {
             StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
             JsonObject& event = jsonBuffer.createObject();
@@ -187,14 +226,13 @@ CMD_QUERY_ADC:
                 event.printTo(str);
                 queue_send.push(str);
             }
+            pin_query_adc = pdu[KEY_PIN];
         }
         break;
+    }
 
-        default:
-        if (command_id >= 0x8000 && sequence_mine == pdu[KEY_SEQUENCE]){
-            sequence_ack = pdu[KEY_SEQUENCE];
-        }
-        break;
+    if (command_id >= 0x8000 && sequence_mine == pdu[KEY_SEQUENCE]){
+        sequence_ack = pdu[KEY_SEQUENCE];
     }
 }
 
@@ -221,14 +259,11 @@ static int thread2_WriteSPDU(struct pt *pt)
 
         //if waiting_ack, then loop until the ack arrived or timeout.
         //The timeout value is assumed as 0.1 second.
-        while(waiting_ack && sequence_ack != sequence_mine ||
-                waiting_ack && time_sent+TIMEOUT_ACK<millis() ||
-                waiting_ack && millis()<time_sent && 0xFFFFFFFF-time_sent+millis()<TIMEOUT_ACK){
+        while(waiting_ack && sequence_ack != sequence_mine && time_sent+TIMEOUT_ACK>millis()){
             flag_thread = (flag_thread+1)%NUM_THREAD;
             PT_WAIT_UNTIL(pt, flag_thread == 2);
             if(need_init2) break;
         }
-
 
         if (need_init2){
             waiting_ack = false;
@@ -245,9 +280,14 @@ static int thread2_WriteSPDU(struct pt *pt)
             StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
             JsonObject& pdu = jsonBuffer.parseObject(str);
             if (pdu[KEY_COMMAND_ID]<0x8000){
-                pdu[KEY_SEQUENCE] = ++sequence_mine;
+                sequence_mine += 1;
+                pdu[KEY_SEQUENCE] = sequence_mine;
                 SendSPDU(pdu);
                 time_sent = millis();
+                if(time_sent >= 0xFFFFFFFF-TIMEOUT_ACK){
+                  delay(TIMEOUT_ACK+100);
+                  time_sent = millis();
+                }
                 waiting_ack = true;
             }
             else{
@@ -297,6 +337,9 @@ void Twinkle()
     if (!twinkling)	return;
     digital_led = (digital_led == LOW? HIGH:LOW);
     digitalWrite(pin_led, digital_led);
+
+    WriteSerial1("pin value ", pin_query, digitalRead(pin_query));
+    WriteSerial1("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
 }
 
 void loop()
