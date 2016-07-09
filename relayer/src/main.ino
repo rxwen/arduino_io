@@ -119,7 +119,7 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
     if (Serial.available()>0){
       char b = Serial.read();
       buffer_rcv[pos_buffer_rcv++] = b;
-      //Serial.write(b);
+      Serial1.write(b);
     }
     else{
       break;
@@ -243,6 +243,7 @@ static void SendSPDU(JsonObject& pdu)
     buffer_send[temp] = check_sum(buffer_send, temp);
   }
   Serial.write(buffer_send, temp + 1);
+  Serial1.write(buffer_send, temp + 1);
 }
 
 //Fetch a PDU from queue and write to the Serial waiting until the feeback.
