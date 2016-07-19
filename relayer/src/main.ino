@@ -27,6 +27,7 @@ static Timer timer;
 volatile static boolean waiting_ack= false;
 volatile static float time_sent;
 volatile static int sequence_mine, sequence_ack;
+volatile static int resend= 0;
 
 const int LEN_BUFFER_SEND = 200;
 const int LEN_BUFFER_RCV = 200;
@@ -243,6 +244,7 @@ static void SendSPDU(JsonObject& pdu)
     buffer_send[temp] = check_sum(buffer_send, temp);
   }
   Serial.write(buffer_send, temp + 1);
+WriteSerial1("sent:");
   Serial1.write(buffer_send, temp + 1);
 }
 
@@ -269,10 +271,15 @@ static int thread2_WriteSPDU(struct pt *pt)
       continue;
     }
 
-    if(waiting_ack && sequence_mine == sequence_ack){
+    if(waiting_ack && (sequence_mine == sequence_ack || resend >= 3)){
       queue_send.pop();
       waiting_ack = false;
+      resend = 0;
     }
+    else if (waiting_ack)
+    {
+      resend ++;
+    }	
 
     if(!queue_send.isEmpty()){
       String str = queue_send.peek();
