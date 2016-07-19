@@ -4,7 +4,7 @@
 #include "Timer.h"
 
 const int NUM_THREAD = 3;
-const int TIMEOUT_ACK = 100;
+const int TIMEOUT_ACK = 300;
 const char KEY_COMMAND_ID[] ="command_id";
 const char KEY_SEQUENCE[] = "sequence";
 const char KEY_PIN[] = "pin";
@@ -284,7 +284,7 @@ static int thread2_WriteSPDU(struct pt *pt)
 	SendSPDU(pdu);
 	time_sent = millis();
 	if(time_sent >= 0xFFFFFFFF-TIMEOUT_ACK){
-	  delay(TIMEOUT_ACK+100);
+	  delay(TIMEOUT_ACK*2);
 	  time_sent = millis();
 	}
 	waiting_ack = true;
