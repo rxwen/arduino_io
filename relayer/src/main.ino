@@ -3,6 +3,9 @@
 #include <QueueList.h>
 #include "Timer.h"
 
+#define SerialCom Serial1
+#define SerialDbg Serial
+
 const int NUM_THREAD = 3;
 const int TIMEOUT_ACK = 300;
 const char KEY_COMMAND_ID[] ="command_id";
@@ -62,13 +65,13 @@ void WriteSerial1(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3
   stringOne += ")\r\n";
   char charBuf[500];
   stringOne.toCharArray(charBuf, 499);
-  Serial1.write(charBuf);
+  SerialDbg.write(charBuf);
 }
 
 void setup()
 {
-  Serial.begin(9600,SERIAL_8N1 );
-  Serial1.begin(9600);
+  SerialCom.begin(9600,SERIAL_8N1 );
+  SerialDbg.begin(9600);
   pinMode(pin_led, OUTPUT);
   timer.every(500, Twinkle);
   PT_INIT(&pt0);
@@ -112,15 +115,15 @@ static byte check_sum(char* p, int len){
   }
   return ret;
 }
-//read Serial for a PDU and feedback ACK to the sender
+//read SerialCom for a PDU and feedback ACK to the sender
 static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
 {
-  //read Serial into buffer_rcv
+  //read SerialCom into buffer_rcv
   while(pos_buffer_rcv< LEN_BUFFER_RCV){
-    if (Serial.available()>0){
-      char b = Serial.read();
+    if (SerialCom.available()>0){
+      char b = SerialCom.read();
       buffer_rcv[pos_buffer_rcv++] = b;
-      Serial1.write(b);
+      SerialDbg.write(b);
     }
     else{
       break;
@@ -235,7 +238,7 @@ static void ProcessSPDU(JsonObject& pdu)
   }
 }
 
-//write the pdu and this checksum to the Serial.
+//write the pdu and this checksum to the SerialCom.
 static void SendSPDU(JsonObject& pdu)
 {
   static char buffer_send[LEN_BUFFER_SEND];
@@ -243,12 +246,12 @@ static void SendSPDU(JsonObject& pdu)
   if (temp>0)    {
     buffer_send[temp] = check_sum(buffer_send, temp);
   }
-  Serial.write(buffer_send, temp + 1);
+  SerialCom.write(buffer_send, temp + 1);
 WriteSerial1("sent:");
-  Serial1.write(buffer_send, temp + 1);
+  SerialDbg.write(buffer_send, temp + 1);
 }
 
-//Fetch a PDU from queue and write to the Serial waiting until the feeback.
+//Fetch a PDU from queue and write to the SerialCom waiting until the feeback.
 static int thread2_WriteSPDU(struct pt *pt)
 {
   PT_BEGIN(pt);
