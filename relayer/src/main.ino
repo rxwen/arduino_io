@@ -42,7 +42,7 @@ volatile static boolean twinkling = true;
 volatile static int pin_query = 13, pin_query_adc = 1;
 
 const int NUMBER_NONE = -9999999;
-void WriteSerial1(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
+void WriteSerialDebug(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
 {
   String stringOne = p;
   stringOne += "( ";
@@ -79,11 +79,8 @@ void setup()
   PT_INIT(&pt2);
 
   initiate();
-  WriteSerial1("setup() is called .......");
+  WriteSerialDebug("setup() is called .......");
 }
-
-
-
 
 static void initiate()
 {
@@ -115,6 +112,7 @@ static byte check_sum(char* p, int len){
   }
   return ret;
 }
+
 //read SerialCom for a PDU and feedback ACK to the sender
 static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
 {
@@ -152,7 +150,7 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
   //check check_sum
   if (check_sum(buffer_rcv, pos_end+1)!= buffer_rcv[pos_end+1]){
     move_forward(pos_end+2);
-    WriteSerial1("error check sum");
+    WriteSerialDebug("error check sum");
     return JsonObject::invalid();
   }
 
@@ -162,7 +160,7 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
   if(pdu == JsonObject::invalid()
      || !pdu.containsKey(KEY_COMMAND_ID)
      ||!pdu.containsKey(KEY_SEQUENCE)) {
-    WriteSerial1("error message");
+    WriteSerialDebug("error message");
     return JsonObject::invalid();
   }
 
@@ -247,7 +245,7 @@ static void SendSPDU(JsonObject& pdu)
     buffer_send[temp] = check_sum(buffer_send, temp);
   }
   SerialCom.write(buffer_send, temp + 1);
-WriteSerial1("sent:");
+  WriteSerialDebug("sent:");
   SerialDbg.write(buffer_send, temp + 1);
 }
 
@@ -347,8 +345,8 @@ void Twinkle()
   digital_led = (digital_led == LOW? HIGH:LOW);
   digitalWrite(pin_led, digital_led);
 
-  WriteSerial1("pin value ", pin_query, digitalRead(pin_query));
-  WriteSerial1("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
+  WriteSerialDebug("pin value ", pin_query, digitalRead(pin_query));
+  WriteSerialDebug("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
 }
 
 void loop()
