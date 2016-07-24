@@ -3,6 +3,9 @@
 #include <QueueList.h>
 #include "Timer.h"
 
+#define SerialCom Serial1
+#define SerialDbg Serial
+
 const int NUM_THREAD = 3;
 const int TIMEOUT_ACK = 300;
 const char KEY_COMMAND_ID[] ="command_id";
@@ -39,7 +42,7 @@ volatile static boolean twinkling = true;
 volatile static int pin_query = 13, pin_query_adc = 1;
 
 const int NUMBER_NONE = -9999999;
-void WriteSerial1(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
+void WriteSerialDebug(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
 {
   String stringOne = p;
   stringOne += "( ";
@@ -62,13 +65,13 @@ void WriteSerial1(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3
   stringOne += ")\r\n";
   char charBuf[500];
   stringOne.toCharArray(charBuf, 499);
-  Serial1.write(charBuf);
+  SerialDbg.write(charBuf);
 }
 
 void setup()
 {
-  Serial.begin(9600,SERIAL_8N1 );
-  Serial1.begin(9600);
+  SerialCom.begin(9600,SERIAL_8N1 );
+  SerialDbg.begin(9600);
   pinMode(pin_led, OUTPUT);
   timer.every(500, Twinkle);
   PT_INIT(&pt0);
@@ -76,11 +79,8 @@ void setup()
   PT_INIT(&pt2);
 
   initiate();
-  WriteSerial1("setup() is called .......");
+  WriteSerialDebug("setup() is called .......");
 }
-
-
-
 
 static void initiate()
 {
@@ -112,15 +112,16 @@ static byte check_sum(byte* p, int len){
   }
   return ret;
 }
-//read Serial for a PDU and feedback ACK to the sender
+
+//read SerialCom for a PDU and feedback ACK to the sender
 static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
 {
-  //read Serial into buffer_rcv
+  //read SerialCom into buffer_rcv
   while(pos_buffer_rcv< LEN_BUFFER_RCV){
-    if (Serial.available()>0){
-      char b = Serial.read();
+    if (SerialCom.available()>0){
+      char b = SerialCom.read();
       buffer_rcv[pos_buffer_rcv++] = b;
-      Serial1.write(b);
+      SerialDbg.write(b);
     }
     else{
       break;
@@ -149,7 +150,7 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
   //check check_sum
   if (check_sum(buffer_rcv, pos_end+1)!= buffer_rcv[pos_end+1]){
     move_forward(pos_end+2);
-    WriteSerial1("error check sum");
+    WriteSerialDebug("error check sum");
     return JsonObject::invalid();
   }
 
@@ -159,7 +160,7 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
   if(pdu == JsonObject::invalid()
      || !pdu.containsKey(KEY_COMMAND_ID)
      ||!pdu.containsKey(KEY_SEQUENCE)) {
-    WriteSerial1("error message");
+    WriteSerialDebug("error message");
     return JsonObject::invalid();
   }
 
@@ -205,9 +206,9 @@ static void ProcessSPDU(JsonObject& pdu)
       event[KEY_PIN] = pdu[KEY_PIN];
       event[KEY_VALUE] = digitalRead(pdu[KEY_PIN]);
       if(queue_send.count()< 10){
-	String str;
-	event.printTo(str);
-	queue_send.push(str);
+        String str;
+        event.printTo(str);
+        queue_send.push(str);
       }
       pin_query = pdu[KEY_PIN];
     }
@@ -221,9 +222,9 @@ static void ProcessSPDU(JsonObject& pdu)
       event[KEY_PIN] = pdu[KEY_PIN];
       event[KEY_VALUE] = analogRead(pdu[KEY_PIN]);
       if(queue_send.count()< 10){
-	String str;
-	event.printTo(str);
-	queue_send.push(str);
+        String str;
+        event.printTo(str);
+        queue_send.push(str);
       }
       pin_query_adc = pdu[KEY_PIN];
     }
@@ -235,7 +236,7 @@ static void ProcessSPDU(JsonObject& pdu)
   }
 }
 
-//write the pdu and this checksum to the Serial.
+//write the pdu and this checksum to the SerialCom.
 static void SendSPDU(JsonObject& pdu)
 {
   static byte buffer_send[LEN_BUFFER_SEND];
@@ -243,12 +244,12 @@ static void SendSPDU(JsonObject& pdu)
   if (temp>0)    {
     buffer_send[temp] = check_sum(buffer_send, temp);
   }
-  Serial.write(buffer_send, temp + 1);
-WriteSerial1("sent:");
-  Serial1.write(buffer_send, temp + 1);
+  SerialCom.write(buffer_send, temp + 1);
+  WriteSerialDebug("sent:");
+  SerialDbg.write(buffer_send, temp + 1);
 }
 
-//Fetch a PDU from queue and write to the Serial waiting until the feeback.
+//Fetch a PDU from queue and write to the SerialCom waiting until the feeback.
 static int thread2_WriteSPDU(struct pt *pt)
 {
   PT_BEGIN(pt);
@@ -286,19 +287,19 @@ static int thread2_WriteSPDU(struct pt *pt)
       StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
       JsonObject& pdu = jsonBuffer.parseObject(str);
       if (pdu[KEY_COMMAND_ID]<0x8000){
-	sequence_mine += 1;
-	pdu[KEY_SEQUENCE] = sequence_mine;
-	SendSPDU(pdu);
-	time_sent = millis();
-	if(time_sent >= 0xFFFFFFFF-TIMEOUT_ACK){
-	  delay(TIMEOUT_ACK*2);
-	  time_sent = millis();
-	}
-	waiting_ack = true;
+        sequence_mine += 1;
+        pdu[KEY_SEQUENCE] = sequence_mine;
+        SendSPDU(pdu);
+        time_sent = millis();
+        if(time_sent >= 0xFFFFFFFF-TIMEOUT_ACK){
+          delay(TIMEOUT_ACK*2);
+          time_sent = millis();
+        }
+        waiting_ack = true;
       }
       else{
-	SendSPDU(pdu);
-	queue_send.pop();
+	    SendSPDU(pdu);
+	    queue_send.pop();
       }
     }
     flag_thread = (flag_thread+1)%NUM_THREAD;
@@ -316,9 +317,9 @@ static int thread0_StandBySerial(struct pt *pt)
     StaticJsonBuffer<LEN_BUFFER_RCV> _jsonBuffer;
     JsonObject& pdu = ReadSPDU(_jsonBuffer);
     if (pdu != JsonObject::invalid())
-      {
-	ProcessSPDU(pdu);
-      }
+    {
+	  ProcessSPDU(pdu);
+    }
 
     flag_thread = (flag_thread+1)%NUM_THREAD;
   }
@@ -344,8 +345,8 @@ void Twinkle()
   digital_led = (digital_led == LOW? HIGH:LOW);
   digitalWrite(pin_led, digital_led);
 
-  WriteSerial1("pin value ", pin_query, digitalRead(pin_query));
-  WriteSerial1("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
+  WriteSerialDebug("pin value ", pin_query, digitalRead(pin_query));
+  WriteSerialDebug("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
 }
 
 void loop()
