@@ -31,7 +31,7 @@ volatile static int resend= 0;
 
 const int LEN_BUFFER_SEND = 200;
 const int LEN_BUFFER_RCV = 200;
-static char buffer_rcv[LEN_BUFFER_RCV];
+static byte buffer_rcv[LEN_BUFFER_RCV];
 volatile static int pos_buffer_rcv;
 static QueueList<String> queue_send;
 const int pin_led = 13;
@@ -105,7 +105,7 @@ static void move_forward(int num)
   }
 }
 
-static byte check_sum(char* p, int len){
+static byte check_sum(byte* p, int len){
   byte ret = 0;
   for(int i = 0; i< len; i++){
     ret += p[i];
@@ -154,7 +154,7 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
   }
 
   buffer_rcv[pos_end+1]='\0';
-  JsonObject& pdu = _jsonBuffer.parseObject(buffer_rcv);
+  JsonObject& pdu = _jsonBuffer.parseObject((char*)buffer_rcv);
   move_forward(pos_end+2);
   if(pdu == JsonObject::invalid()
      || !pdu.containsKey(KEY_COMMAND_ID)
@@ -238,8 +238,8 @@ static void ProcessSPDU(JsonObject& pdu)
 //write the pdu and this checksum to the Serial.
 static void SendSPDU(JsonObject& pdu)
 {
-  static char buffer_send[LEN_BUFFER_SEND];
-  int temp = pdu.printTo(buffer_send, LEN_BUFFER_SEND-1);
+  static byte buffer_send[LEN_BUFFER_SEND];
+  int temp = pdu.printTo((char*)buffer_send, LEN_BUFFER_SEND-1);
   if (temp>0)    {
     buffer_send[temp] = check_sum(buffer_send, temp);
   }
