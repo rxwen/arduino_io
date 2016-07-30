@@ -13,14 +13,19 @@ const char KEY_SEQUENCE[] = "sequence";
 const char KEY_PIN[] = "pin";
 const char KEY_MODE[] = "mode";
 const char KEY_VALUE[] = "value";
+const char KEY_PINS[] = "pins";
+const char KEY_VALUES[] = "values";
+
 const int CMD_INIT = 0x0001;
 const int CMD_HEART = 0x0002;
 const int CMD_SET_MODE = 0x0101;
 const int CMD_SET_VALUE = 0x0102;
 const int CMD_QUERY_VALUE = 0x0202;
 const int CMD_QUERY_ADC = 0x0203;
+const int CMD_QUERY_VALUES = 0x0204;
 const int CMD_EVENT_VALUE = 0x0302;
 const int CMD_EVENT_ADC = 0x0303;
+const int CMD_EVENT_VALUES = 0x0304;
 
 volatile static int flag_thread = 0;
 static struct pt pt0, pt1, pt2;
@@ -32,8 +37,8 @@ volatile static float time_sent;
 volatile static int sequence_mine, sequence_ack;
 volatile static int resend= 0;
 
-const int LEN_BUFFER_SEND = 200;
-const int LEN_BUFFER_RCV = 200;
+const int LEN_BUFFER_SEND = 1000;
+const int LEN_BUFFER_RCV = 1000;
 static byte buffer_rcv[LEN_BUFFER_RCV];
 volatile static int pos_buffer_rcv;
 static QueueList<String> queue_send;
@@ -229,6 +234,27 @@ static void ProcessSPDU(JsonObject& pdu)
       pin_query_adc = pdu[KEY_PIN];
     }
     break;
+
+  case CMD_QUERY_VALUES:
+    {
+      StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
+      JsonObject& event = jsonBuffer.createObject();
+      event[KEY_COMMAND_ID] = CMD_EVENT_VALUES;
+      event[KEY_PINS] = pdu[KEY_PINS];
+      JsonArray& values = event.createNestedArray(KEY_VALUES);
+      for (int i =0;i<event[KEY_PINS].size();i++)
+      {
+	pinMode(pdu[KEY_PINS][i],INPUT_PULLUP);
+	values.add(int(digitalRead(pdu[KEY_PINS][i])));
+      }
+      if(queue_send.count()< 10){
+        String str;
+        event.printTo(str);
+        queue_send.push(str);
+      }
+    }
+    break;
+
   }
 
   if (command_id >= 0x8000 && sequence_mine == pdu[KEY_SEQUENCE]){
