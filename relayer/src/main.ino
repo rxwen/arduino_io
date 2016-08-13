@@ -8,24 +8,24 @@
 
 const int NUM_THREAD = 3;
 const int TIMEOUT_ACK = 300;
-const char KEY_COMMAND_ID[] ="command_id";
-const char KEY_SEQUENCE[] = "sequence";
-const char KEY_PIN[] = "pin";
-const char KEY_MODE[] = "mode";
-const char KEY_VALUE[] = "value";
-const char KEY_PINS[] = "pins";
-const char KEY_VALUES[] = "values";
+const char KEY_COMMAND_ID[] ="c";
+const char KEY_SEQUENCE[] = "s";
+const char KEY_PIN[] = "p";
+const char KEY_MODE[] = "m";
+const char KEY_VALUE[] = "v";
+const char KEY_PINS[] = "ps";
+const char KEY_VALUES[] = "vs";
 
-const int CMD_INIT = 0x0001;
-const int CMD_HEART = 0x0002;
-const int CMD_SET_MODE = 0x0101;
-const int CMD_SET_VALUE = 0x0102;
-const int CMD_QUERY_VALUE = 0x0202;
-const int CMD_QUERY_ADC = 0x0203;
-const int CMD_QUERY_VALUES = 0x0204;
-const int CMD_EVENT_VALUE = 0x0302;
-const int CMD_EVENT_ADC = 0x0303;
-const int CMD_EVENT_VALUES = 0x0304;
+const int CMD_INIT = 0x01;
+const int CMD_HEART = 0x02;
+const int CMD_SET_MODE = 0x11;
+const int CMD_SET_VALUE = 0x12;
+const int CMD_QUERY_VALUE = 0x22;
+const int CMD_QUERY_ADC = 0x23;
+const int CMD_QUERY_VALUES = 0x24;
+const int CMD_EVENT_VALUE = 0x32;
+const int CMD_EVENT_ADC = 0x33;
+const int CMD_EVENT_VALUES = 0x34;
 
 volatile static int flag_thread = 0;
 static struct pt pt0, pt1, pt2;
@@ -169,11 +169,11 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
     return JsonObject::invalid();
   }
 
-  if (pdu[KEY_COMMAND_ID] < 0x8000)   {
+  if (pdu[KEY_COMMAND_ID] < 0x80)   {
     //Send the ACK for the valid PDU.
     StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
     JsonObject& ack = jsonBuffer.createObject();
-    ack[KEY_COMMAND_ID] = 0x8000 + (int)pdu[KEY_COMMAND_ID];
+    ack[KEY_COMMAND_ID] = 0x80 + (int)pdu[KEY_COMMAND_ID];
     ack[KEY_SEQUENCE] = pdu[KEY_SEQUENCE];
     if (pdu[KEY_COMMAND_ID] == CMD_INIT){
       SendSPDU(ack);
@@ -257,7 +257,7 @@ static void ProcessSPDU(JsonObject& pdu)
 
   }
 
-  if (command_id >= 0x8000 && sequence_mine == pdu[KEY_SEQUENCE]){
+  if (command_id >= 0x80 && sequence_mine == pdu[KEY_SEQUENCE]){
     sequence_ack = pdu[KEY_SEQUENCE];
   }
 }
@@ -312,7 +312,7 @@ static int thread2_WriteSPDU(struct pt *pt)
       String str = queue_send.peek();
       StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
       JsonObject& pdu = jsonBuffer.parseObject(str);
-      if (pdu[KEY_COMMAND_ID]<0x8000){
+      if (pdu[KEY_COMMAND_ID]<0x80){
         sequence_mine += 1;
         pdu[KEY_SEQUENCE] = sequence_mine;
         SendSPDU(pdu);
