@@ -6,6 +6,8 @@
 #define SerialCom Serial1
 #define SerialDbg Serial
 
+const char VERSION[]="1.0.0";
+
 const int NUM_THREAD = 3;
 const int TIMEOUT_ACK = 300;
 const char KEY_COMMAND_ID[] ="c";
@@ -15,6 +17,7 @@ const char KEY_MODE[] = "m";
 const char KEY_VALUE[] = "v";
 const char KEY_PINS[] = "ps";
 const char KEY_VALUES[] = "vs";
+const char KEY_VERSION[] = "version";
 
 const int CMD_INIT = 0x01;
 const int CMD_HEART = 0x02;
@@ -23,9 +26,11 @@ const int CMD_SET_VALUE = 0x12;
 const int CMD_QUERY_VALUE = 0x22;
 const int CMD_QUERY_ADC = 0x23;
 const int CMD_QUERY_VALUES = 0x24;
+const int CMD_QUERY_VERSION = 0x25;
 const int CMD_EVENT_VALUE = 0x32;
 const int CMD_EVENT_ADC = 0x33;
 const int CMD_EVENT_VALUES = 0x34;
+const int CMD_EVENT_VERSION = 0x35;
 
 volatile static int flag_thread = 0;
 static struct pt pt0, pt1, pt2;
@@ -232,6 +237,20 @@ static void ProcessSPDU(JsonObject& pdu)
         queue_send.push(str);
       }
       pin_query_adc = pdu[KEY_PIN];
+    }
+    break;
+
+  case CMD_QUERY_VERSION:
+    {
+      StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
+      JsonObject& event = jsonBuffer.createObject();
+      event[KEY_COMMAND_ID] = CMD_EVENT_VERSION;
+      event[KEY_VERSION] = VERSION;
+      if(queue_send.count()< 10){
+        String str;
+        event.printTo(str);
+        queue_send.push(str);
+      }
     }
     break;
 
