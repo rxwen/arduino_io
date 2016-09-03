@@ -158,9 +158,11 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
   }
   //twinkling = !twinkling;
   //check check_sum
-  if (check_sum(buffer_rcv, pos_end+1)!= buffer_rcv[pos_end+1]){
+  byte checksum = check_sum(buffer_rcv, pos_end+1);
+  byte checksum2 = buffer_rcv[pos_end+1];
+  if (checksum!= checksum2){
     move_forward(pos_end+2);
-    WriteSerialDebug("error check sum");
+    WriteSerialDebug("error check sum", checksum, checksum2);
     return JsonObject::invalid();
   }
 
