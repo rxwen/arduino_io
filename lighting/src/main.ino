@@ -23,7 +23,7 @@ const int pin_online = 44;
 const int pin_control = 28;
 const int adpin_check = 1;
 volatile static int status = 0; //0: no device, 1: turned on, 2: turned off
-const int button_interval = 500;  //millisecond
+const int button_interval = 700;  //millisecond
 volatile static float time_status_start;
 
 const int NUMBER_NONE = -9999999;
@@ -100,8 +100,10 @@ static int thread2_Reserved(struct pt *pt)
 static void click_control()
 {
     digitalWrite(pin_control, LOW);
+    WriteSerialDebug("write pin to low: ", pin_control);
     delay(button_interval);
     digitalWrite(pin_control, HIGH);
+    WriteSerialDebug("write pin to high: ", pin_control);
 }
 
 static void set_status(int new_status)
@@ -122,16 +124,11 @@ static int read_online()
     return LOW;
 }
 
-static int thread0_Worker(struct pt *pt)
+
+static void method1_trace_check()
 {
-  PT_BEGIN(pt);
-  while(true) {
-    need_init0 = false;
-    PT_WAIT_UNTIL(pt, flag_thread == 0);
-
-
+    digitalWrite(pin_control, HIGH);
     if ( read_online() == HIGH && status!=0){
-       digitalWrite(pin_control, HIGH);
        set_status(0);
     }
 
@@ -143,18 +140,23 @@ static int thread0_Worker(struct pt *pt)
          if ( v_online == LOW){
             click_control();
             set_status(1);
+
          }
          else
          {
+         
+            /* no need, because the light will turn off automatically
+
             if (analogRead(adpin_check) > 200)
             {
                 click_control(); //turn off the light if there is no device 
+                delay(1000);
             }
+            */
          }
          break;
     case 1:
-         time_now = millis();
-         if ((unsigned long)(time_now - time_status_start) > 4000)
+         if ((unsigned long)(millis() - time_status_start) > 3000)
          {
              v_check = analogRead(adpin_check);
 
@@ -162,25 +164,57 @@ static int thread0_Worker(struct pt *pt)
              if (v_check >= 605 && v_check <= 745){
                 click_control();
                 set_status(2);
-                delay(500);   //wait the device to take action
+             }
+             else{
+                WriteSerialDebug("wrong value", adpin_check,v_check);
              } 
          }
+         
          break;
     case 2:
-         time_now = millis();
-         if ((unsigned long)(time_now - time_status_start) > 4000)
+         if ((unsigned long)(millis() - time_status_start) > 3000)
          {
              v_check = analogRead(adpin_check);
 
              if (v_check < 200){
                 click_control();
                 set_status(1);
-                delay(500);   //wait the device to take action
              }
+             else{
+                WriteSerialDebug("wrong value", adpin_check,v_check);
+             } 
          }
          break;
     }    
 
+}
+
+
+static void method2_no_check()
+{
+    digitalWrite(pin_control, HIGH);
+
+    if ((unsigned long)(millis() - time_status_start) > 2000)
+    {
+        if (read_online()==LOW)
+        {
+            click_control();
+        }
+        set_status(0);
+    }
+}
+
+
+
+static int thread0_Worker(struct pt *pt)
+{
+  PT_BEGIN(pt);
+  while(true) {
+    need_init0 = false;
+    PT_WAIT_UNTIL(pt, flag_thread == 0);
+
+    method2_no_check();
+    
     flag_thread = (flag_thread+1)%NUM_THREAD;
   }
   PT_END(pt);
@@ -205,7 +239,7 @@ void Twinkle()
   digital_led = (digital_led == LOW? HIGH:LOW);
   digitalWrite(pin_led, digital_led);
 
-  WriteSerialDebug("current status: ", status);
+  WriteSerialDebug("current status: ", status, millis(), analogRead(adpin_check));
 
 }
 
