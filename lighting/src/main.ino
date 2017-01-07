@@ -108,11 +108,18 @@ static void set_status(int new_status)
 {
     status = new_status;
     time_status_start = millis();
-    if (time_status_start > 0xFFFFFFFF-30*1000)
+}
+
+static int read_online()
+{
+    float time_start = millis();
+    while((unsigned long)(millis() - time_start ) < 700)
     {
-        delay(40*1000);
-        time_status_start = millis();
+        if(digitalRead(pin_online)==HIGH){
+            return HIGH;
+        }
     }
+    return LOW;
 }
 
 static int thread0_Worker(struct pt *pt)
@@ -123,7 +130,7 @@ static int thread0_Worker(struct pt *pt)
     PT_WAIT_UNTIL(pt, flag_thread == 0);
 
 
-    if ( digitalRead(pin_online) == HIGH && status!=0){
+    if ( read_online() == HIGH && status!=0){
        digitalWrite(pin_control, HIGH);
        set_status(0);
     }
@@ -132,7 +139,7 @@ static int thread0_Worker(struct pt *pt)
     float time_now;
     switch(status){
     case 0:
-         v_online = digitalRead(pin_online);
+         v_online = read_online();
          if ( v_online == LOW){
             click_control();
             set_status(1);
@@ -147,7 +154,7 @@ static int thread0_Worker(struct pt *pt)
          break;
     case 1:
          time_now = millis();
-         if (time_now > time_status_start+4000)
+         if ((unsigned long)(time_now - time_status_start) > 4000)
          {
              v_check = analogRead(adpin_check);
 
@@ -160,7 +167,7 @@ static int thread0_Worker(struct pt *pt)
          break;
     case 2:
          time_now = millis();
-         if (time_now > time_status_start+4000)
+         if ((unsigned long)(time_now - time_status_start) > 4000)
          {
              v_check = analogRead(adpin_check);
 
