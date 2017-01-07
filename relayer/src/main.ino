@@ -6,7 +6,7 @@
 #define SerialCom Serial1
 #define SerialDbg Serial
 
-const char VERSION[]="1.0.1";
+const char VERSION[]="1.0.2";
 
 const int NUM_THREAD = 3;
 const int TIMEOUT_ACK = 300;
