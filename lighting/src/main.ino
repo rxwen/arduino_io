@@ -162,6 +162,7 @@ static int thread0_Worker(struct pt *pt)
              if (v_check >= 605 && v_check <= 745){
                 click_control();
                 set_status(2);
+                delay(500);   //wait the device to take action
              } 
          }
          break;
@@ -174,6 +175,7 @@ static int thread0_Worker(struct pt *pt)
              if (v_check < 200){
                 click_control();
                 set_status(1);
+                delay(500);   //wait the device to take action
              }
          }
          break;
