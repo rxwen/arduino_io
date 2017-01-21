@@ -129,11 +129,11 @@ static int read_analogy_check()
     float time_start = millis();
     while((unsigned long)(millis() - time_start ) < 700)
     {
-        if(digitalRead(adpin_check)<600){
-            return digitalRead(adpin_check);
+        if(analogRead(adpin_check)<600){
+            return analogRead(adpin_check);
         }
     }
-    return digitalRead(adpin_check);
+    return analogRead(adpin_check);
 }
 
 static void method1_trace_check()
@@ -207,7 +207,10 @@ static void method2_no_check()
 
     if ((unsigned long)(millis() - time_status_start) > 2000)
     {
-        if (read_online()==LOW && read_analogy_check()>600)
+        int online = read_online();
+        int analogy_check = read_analogy_check();
+        WriteSerialDebug("check status: ", online, analogy_check);
+        if (online==LOW && analogy_check>600)
         {
             click_control();
         }
@@ -249,7 +252,7 @@ void Twinkle()
   digital_led = (digital_led == LOW? HIGH:LOW);
   digitalWrite(pin_led, digital_led);
 
-  WriteSerialDebug("current status: ", status, millis(), analogRead(adpin_check));
+  //WriteSerialDebug("current status: ", status, millis(), analogRead(adpin_check));
 
 }
 
