@@ -2,6 +2,7 @@
 #include "pt.h"
 #include <QueueList.h>
 #include "Timer.h"
+#include <avr/wdt.h>
 
 #define SerialCom Serial1
 #define SerialDbg Serial
@@ -88,6 +89,7 @@ void setup()
   PT_INIT(&pt1);
   PT_INIT(&pt2);
 
+  wdt_enable(WDTO_1S);
   initiate();
   WriteSerialDebug("setup() is called .......");
 }
@@ -401,4 +403,6 @@ void loop()
   thread0_StandBySerial(&pt0);
   thread1_Lighter(&pt1);
   thread2_WriteSPDU(&pt2);
+
+  wdt_reset();
 }
