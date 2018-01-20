@@ -21,6 +21,55 @@ void setup() {
   Serial.begin(9600);
 }
 
+
+const int NUMBER_NONE = -9999999;
+void WriteSerial(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
+{
+  String stringOne = p;
+  stringOne += "( ";
+  stringOne += millis();
+  stringOne += ", ";
+  if (num1 != NUMBER_NONE){
+    stringOne += num1;
+    stringOne += ", ";
+  }
+  if (num2 != NUMBER_NONE){
+    stringOne += num2;
+    stringOne += ", ";
+  }
+  if (num3 != NUMBER_NONE){
+    stringOne += num3;
+    stringOne += ", ";
+  }
+  if (num4 != NUMBER_NONE){
+    stringOne += num4;
+    stringOne += ", ";
+  }
+  stringOne += ")\r\n";
+  char charBuf[500];
+  stringOne.toCharArray(charBuf, 499);
+  Serial.write(charBuf);
+}
+
+void write_check(int out_pin, int in_pin){
+     pinMode(out_pin, OUTPUT);
+     pinMode(in_pin, INPUT_PULLUP);
+
+     digitalWrite(out_pint, HIGH);
+
+     WriteSerial("start sleep");
+     for (int i=0;i<999999; i++){
+     i=i;
+     }
+     WriteSerial("end sleep");
+     
+     float t_start = millis();
+     digitalWrite(out_pint, LOW);
+     while(digitalRead(in_pin) == HIGH){
+     }
+     WriteSerial("got low:", t_start, millis());
+}
+
 int nTemp = 0;
 // the loop function runs over and over again forever
 void loop() {
@@ -34,4 +83,7 @@ void loop() {
   {
 	Serial.write(Serial.read());
   }
+
+  write_check(33, 39);
+
 }
