@@ -23,51 +23,84 @@ void setup() {
 
 
 const int NUMBER_NONE = -9999999;
-void WriteSerial(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
+void WriteSerial(char* p)
 {
   String stringOne = p;
   stringOne += "( ";
-  stringOne += millis();
+  stringOne += micros();
   stringOne += ", ";
-  if (num1 != NUMBER_NONE){
+  stringOne += ")\r\n";
+  char charBuf[5000];
+  stringOne.toCharArray(charBuf, 499);
+  Serial.write(charBuf);
+}
+
+void WriteSerial2(char* p, unsigned long num1=NUMBER_NONE, unsigned long num2= NUMBER_NONE)
+{
+  String stringOne = p;
+  stringOne += "( ";
+  stringOne += micros();
+  stringOne += ", ";
     stringOne += num1;
     stringOne += ", ";
-  }
-  if (num2 != NUMBER_NONE){
     stringOne += num2;
     stringOne += ", ";
-  }
-  if (num3 != NUMBER_NONE){
-    stringOne += num3;
-    stringOne += ", ";
-  }
-  if (num4 != NUMBER_NONE){
-    stringOne += num4;
-    stringOne += ", ";
-  }
   stringOne += ")\r\n";
   char charBuf[500];
   stringOne.toCharArray(charBuf, 499);
   Serial.write(charBuf);
 }
 
-void write_check(int out_pin, int in_pin){
-     pinMode(out_pin, OUTPUT);
-     pinMode(in_pin, INPUT_PULLUP);
+void WriteSerial3(char* p, long num1=NUMBER_NONE, long num2= NUMBER_NONE, long num3=NUMBER_NONE)
+{
+  String stringOne = p;
+  stringOne += "( ";
+  stringOne += micros();
+  stringOne += ", ";
+    stringOne += num1;
+    stringOne += ", ";
+    stringOne += num2;
+    stringOne += ", ";
+    stringOne += num3;  
+    stringOne += ", ";
+  stringOne += ")\r\n";
+  char charBuf[500];
+  stringOne.toCharArray(charBuf, 499);
+  Serial.write(charBuf);
+}
 
-     digitalWrite(out_pint, HIGH);
+
+void ShowDiffs(long* diffs, int count){
+       String str = "All Diffs:";
+       for (int i=0;i<count;i++){
+       	   str +=diffs[i];
+	   str += ", ";
+       }
+       char charBuf[5000];
+       str.toCharArray(charBuf, 4999);
+       Serial.write(charBuf);
+}
+	
+long write_check(int out_pin, int in_pin, int n){
+     pinMode(out_pin, OUTPUT);
+     pinMode(in_pin, INPUT);
+
+     digitalWrite(out_pin, LOW);
 
      WriteSerial("start sleep");
-     for (int i=0;i<999999; i++){
-     i=i;
-     }
+     unsigned long start_one = micros();
+     delay(1000);
+     unsigned long end_one = micros();
      WriteSerial("end sleep");
+     WriteSerial3("sleep one:", start_one, end_one, end_one-start_one);
      
-     float t_start = millis();
-     digitalWrite(out_pint, LOW);
-     while(digitalRead(in_pin) == HIGH){
+     unsigned long t_start = micros();
+     digitalWrite(out_pin, HIGH);
+     while(digitalRead(in_pin) == LOW){
      }
-     WriteSerial("got low:", t_start, millis());
+     unsigned long t_end = micros();
+     WriteSerial3("got low:", n, t_end, t_end-t_start);
+     return t_end-t_start;
 }
 
 int nTemp = 0;
@@ -84,6 +117,18 @@ void loop() {
 	Serial.write(Serial.read());
   }
 
-  write_check(33, 39);
+  const long N_COUNT = 100;
+  long total_interval = 0;
+  for (int i =0; i< N_COUNT;i++){
+      total_interval += write_check(33, 39, i);
+  }
+  long avg_interval = total_interval/N_COUNT;
+  long diffs[N_COUNT];
 
+  for (int i=0; i<N_COUNT; i++){
+      long t =  write_check(33, 39, N_COUNT+i);
+      diffs[i] = t - avg_interval;
+      WriteSerial3("diff: ", diffs[i], t, avg_interval);      
+  }
+  ShowDiffs(diffs, N_COUNT);
 }
