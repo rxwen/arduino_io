@@ -19,8 +19,8 @@ const char KEY_VALUE[] = "v";
 const char KEY_PINS[] = "ps";
 const char KEY_VALUES[] = "vs";
 const char KEY_VERSION[] = "version";
-const char KEY_INPUT_PIN = "i_p";
-const char KEY_OUTPUT_PIN = "o_p";
+const char KEY_INPUT_PIN[] = "i_p";
+const char KEY_OUTPUT_PIN[] = "o_p";
 
 
 const int CMD_INIT = 0x01;
