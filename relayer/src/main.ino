@@ -19,6 +19,9 @@ const char KEY_VALUE[] = "v";
 const char KEY_PINS[] = "ps";
 const char KEY_VALUES[] = "vs";
 const char KEY_VERSION[] = "version";
+const char KEY_INPUT_PIN = "i_p";
+const char KEY_OUTPUT_PIN = "o_p";
+
 
 const int CMD_INIT = 0x01;
 const int CMD_HEART = 0x02;
@@ -28,10 +31,12 @@ const int CMD_QUERY_VALUE = 0x22;
 const int CMD_QUERY_ADC = 0x23;
 const int CMD_QUERY_VALUES = 0x24;
 const int CMD_QUERY_VERSION = 0x25;
+const int CMD_RELAY_VERIFY = 0x26;
 const int CMD_EVENT_VALUE = 0x32;
 const int CMD_EVENT_ADC = 0x33;
 const int CMD_EVENT_VALUES = 0x34;
 const int CMD_EVENT_VERSION = 0x35;
+const int CMD_EVENT_RELAY_VERIFY = 0x36;
 
 volatile static int flag_thread = 0;
 static struct pt pt0, pt1, pt2;
@@ -124,6 +129,116 @@ static byte check_sum(byte* p, int len){
   }
   return ret;
 }
+
+
+long write_check(int out_pin, int in_pin){
+
+     unsigned long t_start = micros();
+     unsigned long t_end;
+     while(digitalRead(in_pin) == HIGH){
+         t_end = micros();
+         if (t_end-t_start > 1000000){
+           WriteSerialDebug("the in_pin keep LOW!");
+            return -1;
+         }
+     }
+
+
+     t_start = micros();
+     digitalWrite(out_pin, HIGH);
+     while(digitalRead(in_pin) == LOW){
+         t_end = micros();
+         if (t_end-t_start > 1000000){
+           WriteSerialDebug("get relay response timeout!");
+            return -1;
+         }
+     }     
+     t_end = micros();
+     return t_end-t_start;
+}
+
+long STABLE_FLUC = 100;
+bool is_stable(long* values, int num){
+     long max_value = values[0];
+     long min_value = values[1];
+     for (int i=1;i<num;i++){
+         if (max_value < values[i]){
+            max_value = values[i];
+         }
+         if (min_value > values[i]){
+            min_value = values[i];
+         }
+     }
+     return max_value - min_value < STABLE_FLUC*2;
+}
+
+long relay_verify(int out_pin, int in_pin){
+     long t_start = micros(), t_now;
+     pinMode(out_pin, OUTPUT);
+     pinMode(in_pin, INPUT);
+     digitalWrite(out_pin, LOW);
+     delay(300);
+
+
+     int state =0 ; //0: finding stable value, 1: finding the follow stable values
+     long stable_value = 0, current_value;
+     int count=0;
+     long values[50];
+     while ((current_value = write_check(out_pin, in_pin))>=0) {
+         t_now = micros();
+         if (t_now<t_start)
+         {
+            t_start = t_now;
+         }
+         if (t_now-t_start > 1000000*30){
+           WriteSerialDebug("relay_verify timeout!");
+            return -1;
+         }
+         if (current_value<0)
+         {
+           WriteSerialDebug("write_check return negative!");
+           continue;
+         }
+         values[++count] = current_value;
+         if (count<4){
+            continue;
+         }
+         if (state==0){
+            if (is_stable(values, count)){
+               long total = 0;
+               for (int i=0;i<count;i++) {
+                   total += values[i];
+               }
+               stable_value = total/count;
+               state = 1;
+            }
+            else{
+                for (int i=1;i<count;i++) {
+                    values[i-1] = values[i];
+                }
+                count--;
+            }
+            continue;
+         }
+         if (current_value > stable_value+STABLE_FLUC ||
+             current_value < stable_value-STABLE_FLUC){
+            count--;
+         }
+         else{
+            if (count>=10)
+            {
+               long total = 0;
+               for (int i=0;i<count;i++) {
+                   total += values[i];
+               }
+               return total/count;
+            }
+         }
+     }
+     WriteSerialDebug("relay verify failed!");
+     return -1;
+}
+
 
 //read SerialCom for a PDU and feedback ACK to the sender
 static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
