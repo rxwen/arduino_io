@@ -58,7 +58,7 @@ volatile static boolean twinkling = true;
 volatile static int pin_query = 13, pin_query_adc = 1;
 
 const int NUMBER_NONE = -9999999;
-void WriteSerialDebug(char* p, int num1=NUMBER_NONE, int num2= NUMBER_NONE, int num3=NUMBER_NONE, int num4 = NUMBER_NONE)
+void WriteSerialDebug(char* p, long num1=NUMBER_NONE, long num2= NUMBER_NONE, long num3=NUMBER_NONE, long num4 = NUMBER_NONE)
 {
   String stringOne = p;
   stringOne += "( ";
@@ -132,21 +132,23 @@ static byte check_sum(byte* p, int len){
 
 
 long write_check(int out_pin, int in_pin){
-
+     WriteSerialDebug("enter write_check()!");
+     digitalWrite(out_pin, LOW);
      unsigned long t_start = micros();
      unsigned long t_end;
      while(digitalRead(in_pin) == HIGH){
          t_end = micros();
          if (t_end-t_start > 1000000){
-           WriteSerialDebug("the in_pin keep LOW!");
+           WriteSerialDebug("the in_pin keep HIGH!");
             return -1;
          }
      }
 
-
+     WriteSerialDebug("ready to verify output");
      t_start = micros();
      digitalWrite(out_pin, HIGH);
      while(digitalRead(in_pin) == LOW){
+         wdt_reset();
          t_end = micros();
          if (t_end-t_start > 1000000){
            WriteSerialDebug("get relay response timeout!");
@@ -154,10 +156,11 @@ long write_check(int out_pin, int in_pin){
          }
      }     
      t_end = micros();
+     WriteSerialDebug("response duration", t_end-t_start);
      return t_end-t_start;
 }
 
-long STABLE_FLUC = 100;
+long STABLE_FLUC = 10;
 bool is_stable(long* values, int num){
      long max_value = values[0];
      long min_value = values[1];
@@ -173,18 +176,21 @@ bool is_stable(long* values, int num){
 }
 
 long relay_verify(int out_pin, int in_pin){
+     WriteSerialDebug("start relay_verify()!");
      long t_start = micros(), t_now;
      pinMode(out_pin, OUTPUT);
      pinMode(in_pin, INPUT);
      digitalWrite(out_pin, LOW);
      delay(300);
+     wdt_reset();
 
-
+     WriteSerialDebug("relay_verify pins' mode has been set!");
      int state =0 ; //0: finding stable value, 1: finding the follow stable values
      long stable_value = 0, current_value;
      int count=0;
      long values[50];
      while ((current_value = write_check(out_pin, in_pin))>=0) {
+     	 wdt_reset();
          t_now = micros();
          if (t_now<t_start)
          {
@@ -231,6 +237,7 @@ long relay_verify(int out_pin, int in_pin){
                for (int i=0;i<count;i++) {
                    total += values[i];
                }
+	       wdt_reset();
                return total/count;
             }
          }
@@ -299,7 +306,7 @@ static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
     JsonObject& ack = jsonBuffer.createObject();
     ack[KEY_COMMAND_ID] = 0x80 + (int)pdu[KEY_COMMAND_ID];
     ack[KEY_SEQUENCE] = pdu[KEY_SEQUENCE];
-    if (pdu[KEY_COMMAND_ID] == CMD_INIT){
+    if (pdu[KEY_COMMAND_ID] == CMD_INIT || pdu[KEY_COMMAND_ID] == CMD_RELAY_VERIFY){
       SendSPDU(ack);
     }
     else if(queue_send.count()< 10){
@@ -392,6 +399,22 @@ static void ProcessSPDU(JsonObject& pdu)
       }
     }
     break;
+  case CMD_RELAY_VERIFY:
+    {
+	long value = relay_verify(pdu[KEY_OUTPUT_PIN], pdu[KEY_INPUT_PIN]);
+        WriteSerialDebug("The relay_verify result is ", value);
+	StaticJsonBuffer<LEN_BUFFER_RCV> jsonBuffer;
+        JsonObject& event = jsonBuffer.createObject();
+      	event[KEY_COMMAND_ID] = CMD_EVENT_RELAY_VERIFY;
+      	event[KEY_VALUE] = value;
+     	if (queue_send.count()< 10)
+	{
+           String str;
+           event.printTo(str);
+           queue_send.push(str);
+      	}
+    }
+    break;
 
   }
 
@@ -412,6 +435,7 @@ static void SendSPDU(JsonObject& pdu)
   WriteSerialDebug("sent:");
   SerialDbg.write(buffer_send, temp + 1);
 }
+
 
 //Fetch a PDU from queue and write to the SerialCom waiting until the feeback.
 static int thread2_WriteSPDU(struct pt *pt)
