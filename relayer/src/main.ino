@@ -160,7 +160,7 @@ long write_check(int out_pin, int in_pin){
      return t_end-t_start;
 }
 
-long STABLE_FLUC = 10;
+long STABLE_FLUC = 500; # in micros
 bool is_stable(long* values, int num){
      long max_value = values[0];
      long min_value = values[1];
@@ -196,15 +196,11 @@ long relay_verify(int out_pin, int in_pin){
          {
             t_start = t_now;
          }
-         if (t_now-t_start > 1000000*30){
+         if (t_now-t_start > 1000000*10){
            WriteSerialDebug("relay_verify timeout!");
             return -1;
          }
-         if (current_value<0)
-         {
-           WriteSerialDebug("write_check return negative!");
-           continue;
-         }
+
          values[++count] = current_value;
          if (count<4){
             continue;
