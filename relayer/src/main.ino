@@ -132,7 +132,6 @@ static byte check_sum(byte* p, int len){
 
 
 long write_check(int out_pin, int in_pin){
-     WriteSerialDebug("enter write_check()!");
      digitalWrite(out_pin, LOW);
      unsigned long t_start = micros();
      unsigned long t_end;
@@ -144,14 +143,12 @@ long write_check(int out_pin, int in_pin){
          }
      }
 
-     WriteSerialDebug("ready to verify output");
      t_start = micros();
      digitalWrite(out_pin, HIGH);
      while(digitalRead(in_pin) == LOW){
          wdt_reset();
          t_end = micros();
          if (t_end-t_start > 1000000){
-           WriteSerialDebug("get relay response timeout!");
             return -1;
          }
      }     
