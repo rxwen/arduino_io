@@ -157,7 +157,7 @@ long write_check(int out_pin, int in_pin){
      return t_end-t_start;
 }
 
-long STABLE_FLUC = 500; # in micros
+long STABLE_FLUC = 500; // in micros
 bool is_stable(long* values, int num){
      long max_value = values[0];
      long min_value = values[1];
