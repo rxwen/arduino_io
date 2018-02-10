@@ -135,7 +135,8 @@ long write_check(int out_pin, int in_pin){
      digitalWrite(out_pin, LOW);
      unsigned long t_start = micros();
      unsigned long t_end;
-     while(digitalRead(in_pin) == HIGH){
+     delay(200);
+     while(digitalRead(in_pin) == LOW){
          t_end = micros();
          if (t_end-t_start > 1000000){
            WriteSerialDebug("the in_pin keep HIGH!");
@@ -145,7 +146,7 @@ long write_check(int out_pin, int in_pin){
 
      t_start = micros();
      digitalWrite(out_pin, HIGH);
-     while(digitalRead(in_pin) == LOW){
+     while(digitalRead(in_pin) == HIGH){
          wdt_reset();
          t_end = micros();
          if (t_end-t_start > 1000000){
@@ -196,6 +197,7 @@ long relay_verify(int out_pin, int in_pin){
          }
          if (t_now-t_start > 1000000*10){
            WriteSerialDebug("relay_verify timeout!");
+            digitalWrite(out_pin, LOW);
             return -1;
          }
 
@@ -236,11 +238,13 @@ long relay_verify(int out_pin, int in_pin){
                    total += values[i];
                }
 	       wdt_reset();
+               digitalWrite(out_pin, LOW);
                return total/count;
             }
          }
      }
      WriteSerialDebug("relay verify failed!");
+     digitalWrite(out_pin, LOW);
      return -1;
 }
 
@@ -531,8 +535,8 @@ void Twinkle()
   digital_led = (digital_led == LOW? HIGH:LOW);
   digitalWrite(pin_led, digital_led);
 
-  WriteSerialDebug("pin value ", pin_query, digitalRead(pin_query));
-  WriteSerialDebug("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
+  //WriteSerialDebug("pin value ", pin_query, digitalRead(pin_query));
+  //WriteSerialDebug("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
 }
 
 void loop()
