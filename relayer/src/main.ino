@@ -153,15 +153,15 @@ long write_check(int out_pin, int in_pin){
          }
      }     
      t_end = micros();
-     WriteSerialDebug("response duration", t_end-t_start);
      return t_end-t_start;
 }
 
 long STABLE_FLUC = 500; // in micros
-bool is_stable(long* values, int num){
-     long max_value = values[0];
-     long min_value = values[1];
-     for (int i=1;i<num;i++){
+bool is_stable(volatile long* values, int num){
+     volatile long max_value = values[0];
+     volatile long min_value = values[0];
+     volatile int i;
+     for (i=1;i<num;i++){
          if (max_value < values[i]){
             max_value = values[i];
          }
@@ -169,12 +169,13 @@ bool is_stable(long* values, int num){
             min_value = values[i];
          }
      }
+     WriteSerialDebug("checking stable: ", values[0], max_value, min_value);
      return max_value - min_value < STABLE_FLUC*2;
 }
 
 long relay_verify(int out_pin, int in_pin){
      WriteSerialDebug("start relay_verify()!");
-     long t_start = micros(), t_now;
+     volatile long t_start = micros(), t_now;
      pinMode(out_pin, OUTPUT);
      pinMode(in_pin, INPUT);
      digitalWrite(out_pin, LOW);
@@ -182,10 +183,10 @@ long relay_verify(int out_pin, int in_pin){
      wdt_reset();
 
      WriteSerialDebug("relay_verify pins' mode has been set!");
-     int state =0 ; //0: finding stable value, 1: finding the follow stable values
-     long stable_value = 0, current_value;
-     int count=0;
-     long values[50];
+     volatile int state =0 ; //0: finding stable value, 1: finding the follow stable values
+     volatile long stable_value = 0, current_value;
+     volatile int count=0;
+     volatile long values[50];
      while ((current_value = write_check(out_pin, in_pin))>=0) {
      	 wdt_reset();
          t_now = micros();
@@ -198,7 +199,8 @@ long relay_verify(int out_pin, int in_pin){
             return -1;
          }
 
-         values[++count] = current_value;
+         values[count++] = current_value;
+	 WriteSerialDebug("relay_verify step: ", count, current_value);
          if (count<4){
             continue;
          }
@@ -206,12 +208,15 @@ long relay_verify(int out_pin, int in_pin){
             if (is_stable(values, count)){
                long total = 0;
                for (int i=0;i<count;i++) {
+	       	   // WriteSerialDebug("summing for stable: ",i,values[i]);
                    total += values[i];
                }
                stable_value = total/count;
                state = 1;
+	       WriteSerialDebug("stabled value: ", stable_value);
             }
             else{
+		WriteSerialDebug("unstable!");
                 for (int i=1;i<count;i++) {
                     values[i-1] = values[i];
                 }
