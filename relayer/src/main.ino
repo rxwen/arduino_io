@@ -163,6 +163,8 @@ long write_check(int out_pin, int in_pin){
 }
 
 long STABLE_FLUC = 500; // in micros
+long RELAY_VERIFY_TIMEOUT = 120; //in seconds
+
 bool is_stable(volatile long* values, int num){
      volatile long max_value = values[0];
      volatile long min_value = values[0];
@@ -255,6 +257,15 @@ long relay_verify(int out_pin, int in_pin){
 }
 
 
+long outside_relay_verify(int out_pin, int in_pin){
+     volatile int count=0;
+     volatile long values[50];
+     for( int i=0; i< 10; i++)
+     {
+         values[count] = relay_verify(out_pin, in_pin);
+         WriteSerialDebug("avg relay value : ", count, values[count], is_stable(values, count));
+     }
+}
 //read SerialCom for a PDU and feedback ACK to the sender
 static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
 {
