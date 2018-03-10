@@ -7,7 +7,7 @@
 #define SerialCom Serial1
 #define SerialDbg Serial
 
-const char VERSION[]="1.0.4";
+const char VERSION[]="1.0.5";
 
 const int NUM_THREAD = 3;
 const int TIMEOUT_ACK = 300;
@@ -109,6 +109,10 @@ static void initiate()
   need_init2 = true;
   while (queue_send.count() > 0)
     queue_send.pop();
+
+  //for meta safty, set 33 as HIGH  by default
+  pinMode(43, OUTPUT);
+  digitalWrite(43, LOW);
 }
 
 static void move_forward(int num)
@@ -135,7 +139,8 @@ long write_check(int out_pin, int in_pin){
      digitalWrite(out_pin, LOW);
      unsigned long t_start = micros();
      unsigned long t_end;
-     delay(200);
+     delay(500);
+     wdt_reset();
      while(digitalRead(in_pin) == LOW){
          t_end = micros();
          if (t_end-t_start > 1000000){
@@ -180,6 +185,7 @@ long relay_verify(int out_pin, int in_pin){
      pinMode(out_pin, OUTPUT);
      pinMode(in_pin, INPUT);
      digitalWrite(out_pin, LOW);
+     wdt_reset();
      delay(300);
      wdt_reset();
 
@@ -195,7 +201,7 @@ long relay_verify(int out_pin, int in_pin){
          {
             t_start = t_now;
          }
-         if (t_now-t_start > 1000000*10){
+         if (t_now-t_start > 1000000*20){
            WriteSerialDebug("relay_verify timeout!");
             digitalWrite(out_pin, LOW);
             return -1;
@@ -326,6 +332,7 @@ static void ProcessSPDU(JsonObject& pdu)
   switch (command_id)    {
   case CMD_INIT:
     initiate();
+    
     break;
 
   case CMD_SET_MODE:
