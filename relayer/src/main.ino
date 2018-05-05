@@ -7,7 +7,7 @@
 #define SerialCom Serial1
 #define SerialDbg Serial
 
-const char VERSION[]="1.0.4";
+const char VERSION[]="1.0.5";
 
 const int NUM_THREAD = 3;
 const int TIMEOUT_ACK = 300;
@@ -109,6 +109,10 @@ static void initiate()
   need_init2 = true;
   while (queue_send.count() > 0)
     queue_send.pop();
+
+  //for meta safty, set 33 as HIGH  by default
+  pinMode(43, OUTPUT);
+  digitalWrite(43, LOW);
 }
 
 static void move_forward(int num)
@@ -135,7 +139,9 @@ long write_check(int out_pin, int in_pin){
      digitalWrite(out_pin, LOW);
      unsigned long t_start = micros();
      unsigned long t_end;
-     while(digitalRead(in_pin) == HIGH){
+     delay(500);
+     wdt_reset();
+     while(digitalRead(in_pin) == LOW){
          t_end = micros();
          if (t_end-t_start > 1000000){
            WriteSerialDebug("the in_pin keep HIGH!");
@@ -145,7 +151,7 @@ long write_check(int out_pin, int in_pin){
 
      t_start = micros();
      digitalWrite(out_pin, HIGH);
-     while(digitalRead(in_pin) == LOW){
+     while(digitalRead(in_pin) == HIGH){
          wdt_reset();
          t_end = micros();
          if (t_end-t_start > 1000000){
@@ -157,6 +163,8 @@ long write_check(int out_pin, int in_pin){
 }
 
 long STABLE_FLUC = 500; // in micros
+long RELAY_VERIFY_TIMEOUT = 120; //in seconds
+
 bool is_stable(volatile long* values, int num){
      volatile long max_value = values[0];
      volatile long min_value = values[0];
@@ -179,6 +187,7 @@ long relay_verify(int out_pin, int in_pin){
      pinMode(out_pin, OUTPUT);
      pinMode(in_pin, INPUT);
      digitalWrite(out_pin, LOW);
+     wdt_reset();
      delay(300);
      wdt_reset();
 
@@ -194,8 +203,9 @@ long relay_verify(int out_pin, int in_pin){
          {
             t_start = t_now;
          }
-         if (t_now-t_start > 1000000*10){
+         if (t_now-t_start > 1000000*20){
            WriteSerialDebug("relay_verify timeout!");
+            digitalWrite(out_pin, LOW);
             return -1;
          }
 
@@ -236,15 +246,26 @@ long relay_verify(int out_pin, int in_pin){
                    total += values[i];
                }
 	       wdt_reset();
+               digitalWrite(out_pin, LOW);
                return total/count;
             }
          }
      }
      WriteSerialDebug("relay verify failed!");
+     digitalWrite(out_pin, LOW);
      return -1;
 }
 
 
+long outside_relay_verify(int out_pin, int in_pin){
+     volatile int count=0;
+     volatile long values[50];
+     for( int i=0; i< 10; i++)
+     {
+         values[count] = relay_verify(out_pin, in_pin);
+         WriteSerialDebug("avg relay value : ", count, values[count], is_stable(values, count));
+     }
+}
 //read SerialCom for a PDU and feedback ACK to the sender
 static JsonObject& ReadSPDU(StaticJsonBuffer<LEN_BUFFER_RCV>& _jsonBuffer)
 {
@@ -322,6 +343,7 @@ static void ProcessSPDU(JsonObject& pdu)
   switch (command_id)    {
   case CMD_INIT:
     initiate();
+    
     break;
 
   case CMD_SET_MODE:
@@ -531,8 +553,8 @@ void Twinkle()
   digital_led = (digital_led == LOW? HIGH:LOW);
   digitalWrite(pin_led, digital_led);
 
-  WriteSerialDebug("pin value ", pin_query, digitalRead(pin_query));
-  WriteSerialDebug("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
+  //WriteSerialDebug("pin value ", pin_query, digitalRead(pin_query));
+  //WriteSerialDebug("pin value of adc ", pin_query_adc, analogRead(pin_query_adc));
 }
 
 void loop()
