@@ -12,7 +12,10 @@ It's highly recommended to use [platformio](http://platformio.org) instead of ar
 ## build instructions
 ```
 cd directory
-platformio init --board uno
-platformio run
-platformio run -t upload
+platformio upgrade                      # Only once
+platformio init --board megaADK         # Only once
+platformio lib install ArduinoJson      # Only once, install dependencies
+
+platformio run                          # optional, for compiling test
+platformio run -t upload                # for burn to arduino
 ```
