@@ -342,6 +342,7 @@ static void ProcessSPDU(JsonObject& pdu)
   int command_id = pdu[KEY_COMMAND_ID];
   switch (command_id)    {
   case CMD_INIT:
+    WriteSerialDebug("Got init PDU!")
     initiate();
     
     break;
