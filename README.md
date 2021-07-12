@@ -19,3 +19,5 @@ platformio lib install ArduinoJson      # Only once, install dependencies
 platformio run                          # optional, for compiling test
 platformio run -t upload                # for burn to arduino
 ```
+
+The relayer project is the main project to turn Arduino mega2560 to a io extender for function test main board
