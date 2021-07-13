@@ -14,7 +14,7 @@ It's highly recommended to use [platformio](http://platformio.org) instead of ar
 cd directory
 platformio upgrade                      # Only once
 platformio init --board megaADK         # Only once
-platformio lib install ArduinoJson      # Only once, install dependencies
+platformio lib install 12209            # Only once, install dependencies, 12209 is the id of ArduinoJson to avoid ambiguous
 
 platformio run                          # optional, for compiling test
 platformio run -t upload                # for burn to arduino
